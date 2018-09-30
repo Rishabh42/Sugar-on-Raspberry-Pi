@@ -15,10 +15,10 @@ if [ "$ENABLE_FBTURBO" = true ] ; then
     cp -r "${FBTURBOSRC_DIR}" "${R}/tmp"
   else
     # Create temporary directory for fbturbo sources
-    temp_dir=$(sudo -u nobody mktemp -d)
+    temp_dir=$(as_nobody mktemp -d)
 
     # Fetch fbturbo sources
-    sudo -u nobody git -C "${temp_dir}" clone "${FBTURBO_URL}"
+    as_nobody git -C "${temp_dir}" clone "${FBTURBO_URL}"
 
     # Move downloaded fbturbo sources
     mv "${temp_dir}/xf86-video-fbturbo" "${R}/tmp/"
@@ -30,7 +30,7 @@ if [ "$ENABLE_FBTURBO" = true ] ; then
   # Install Xorg build dependencies
   if [ "$RELEASE" = "jessie" ] ; then
     chroot_exec apt-get -q -y --no-install-recommends install xorg-dev xutils-dev x11proto-dri2-dev libltdl-dev libtool automake libdrm-dev
-  elif [ "$RELEASE" = "stretch" ] ; then
+  elif [ "$RELEASE" = "stretch" ] || [ "$RELEASE" = "buster" ] ; then
     chroot_exec apt-get -q -y --no-install-recommends --allow-unauthenticated install xorg-dev xutils-dev x11proto-dri2-dev libltdl-dev libtool automake libdrm-dev
   fi
 

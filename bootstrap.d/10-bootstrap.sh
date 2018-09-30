@@ -11,7 +11,7 @@ EXCLUDES=""
 
 # Use non-free Debian packages if needed
 if [ "$ENABLE_NONFREE" = true ] ; then
-  COMPONENTS="main,non-free"
+  COMPONENTS="main,non-free,contrib"
 fi
 
 # Use minbase bootstrap variant which only includes essential packages
@@ -20,7 +20,7 @@ if [ "$ENABLE_MINBASE" = true ] ; then
 fi
 
 # Exclude packages if required by Debian release
-if [ "$RELEASE" = "stretch" ] ; then
+if [ "$RELEASE" = "stretch" ] || [ "$RELEASE" = "buster" ] ; then
   EXCLUDES="--exclude=init,systemd-sysv"
 fi
 

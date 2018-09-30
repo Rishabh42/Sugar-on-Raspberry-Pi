@@ -33,6 +33,11 @@ chroot_exec() {
   LANG=C LC_ALL=C DEBIAN_FRONTEND=noninteractive chroot ${R} $*
 }
 
+as_nobody() {
+  # Exec command as user nobody
+  sudo -E -u nobody LANG=C LC_ALL=C $*
+}
+
 install_readonly() {
   # Install file with user read-only permissions
   install -o root -g root -m 644 $*
@@ -61,7 +66,7 @@ chroot_install_cc() {
 
     if [ "$RELEASE" = "jessie" ] ; then
       chroot_exec apt-get -q -y --no-install-recommends install ${COMPILER_PACKAGES}
-    elif [ "$RELEASE" = "stretch" ] ; then
+    elif [ "$RELEASE" = "stretch" ] || [ "$RELEASE" = "buster" ] ; then
       chroot_exec apt-get -q -y --allow-unauthenticated --no-install-recommends install ${COMPILER_PACKAGES}
     fi
   fi

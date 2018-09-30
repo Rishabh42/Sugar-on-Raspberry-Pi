@@ -40,6 +40,10 @@ fi
 chroot_exec apt-get -qq -y update
 chroot_exec apt-get -qq -y -u dist-upgrade
 
+if [ "$APT_INCLUDES_LATE" ] ; then
+  chroot_exec apt-get -qq -y install $(echo $APT_INCLUDES_LATE |tr , ' ')
+fi
+
 if [ -d packages ] ; then
   for package in packages/*.deb ; do
     cp $package ${R}/tmp
@@ -47,6 +51,5 @@ if [ -d packages ] ; then
   done
 fi
 chroot_exec apt-get -qq -y -f install
-
 
 chroot_exec apt-get -qq -y check

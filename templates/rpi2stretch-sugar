@@ -7,4 +7,5 @@ ENABLE_WIRELESS=false
 ENABLE_XORG=true
 ENABLE_MINBASE=true
 ENABLE_SSHD=false
-APT_INCLUDES="dbus,dbus-x11,sucrose,lightdm,network-manager,telepathy-mission-control-5,unzip,openssh-client,telepathy-salut,telepathy-gabble,upower,pulseaudio,gstreamer1.0-pulseaudio,gstreamer1.0-espeak,gstreamer1.0-plugins-good,python-sugar-toolkit,python-sugar"
+ENABLE_SOUND=true
+APT_INCLUDES="sucrose,lightdm,network-manager,telepathy-mission-control-5,unzip,openssh-client,telepathy-salut,telepathy-gabble,upower,pulseaudio,gstreamer1.0-pulseaudio,gstreamer1.0-espeak,gstreamer1.0-plugins-good,python-sugar-toolkit,python-sugar"

@@ -3,7 +3,7 @@
 ########################################################################
 # rpi23-gen-image.sh					       2015-2017
 #
-# Advanced Debian "jessie" and "stretch"  bootstrap script for RPi2/3
+# Advanced Debian "jessie", "stretch" and "buster" bootstrap script for RPi2/3
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,7 @@
 #
 # Copyright (C) 2015 Jan Wagner <mail@jwagner.eu>
 #
-# Big thanks for patches and enhancements by 10+ github contributors!
+# Big thanks for patches and enhancements by 20+ github contributors!
 ########################################################################
 
 # Are we running as root?
@@ -53,14 +53,24 @@ KERNEL_ARCH=${KERNEL_ARCH:=arm}
 RELEASE_ARCH=${RELEASE_ARCH:=armhf}
 CROSS_COMPILE=${CROSS_COMPILE:=arm-linux-gnueabihf-}
 COLLABORA_KERNEL=${COLLABORA_KERNEL:=3.18.0-trunk-rpi2}
-KERNEL_DEFCONFIG=${KERNEL_DEFCONFIG:=bcm2709_defconfig}
-KERNEL_IMAGE=${KERNEL_IMAGE:=kernel7.img}
-QEMU_BINARY=${QEMU_BINARY:=/usr/bin/qemu-arm-static}
+if [ "$KERNEL_ARCH" = "arm64" ] ; then
+  KERNEL_DEFCONFIG=${KERNEL_DEFCONFIG:=bcmrpi3_defconfig}
+  KERNEL_IMAGE=${KERNEL_IMAGE:=kernel8.img}
+else
+  KERNEL_DEFCONFIG=${KERNEL_DEFCONFIG:=bcm2709_defconfig}
+  KERNEL_IMAGE=${KERNEL_IMAGE:=kernel7.img}
+fi
+if [ "$RELEASE_ARCH" = "arm64" ] ; then
+  QEMU_BINARY=${QEMU_BINARY:=/usr/bin/qemu-aarch64-static}
+else
+  QEMU_BINARY=${QEMU_BINARY:=/usr/bin/qemu-arm-static}
+fi
+KERNEL_BRANCH=${KERNEL_BRANCH:=""}
 
 # URLs
 KERNEL_URL=${KERNEL_URL:=https://github.com/raspberrypi/linux}
 FIRMWARE_URL=${FIRMWARE_URL:=https://github.com/raspberrypi/firmware/raw/master/boot}
-WLAN_FIRMWARE_URL=${WLAN_FIRMWARE_URL:=https://github.com/RPi-Distro/firmware-nonfree/raw/master/brcm80211/brcm}
+WLAN_FIRMWARE_URL=${WLAN_FIRMWARE_URL:=https://github.com/RPi-Distro/firmware-nonfree/raw/master/brcm}
 COLLABORA_URL=${COLLABORA_URL:=https://repositories.collabora.co.uk/debian}
 FBTURBO_URL=${FBTURBO_URL:=https://github.com/ssvb/xf86-video-fbturbo.git}
 UBOOT_URL=${UBOOT_URL:=git://git.denx.de/u-boot.git}
@@ -68,9 +78,14 @@ UBOOT_URL=${UBOOT_URL:=git://git.denx.de/u-boot.git}
 # Build directories
 BASEDIR=${BASEDIR:=$(pwd)/images/${RELEASE}}
 BUILDDIR="${BASEDIR}/build"
+
 # Prepare date string for default image file name
 DATE="$(date +%Y-%m-%d)"
-IMAGE_NAME=${IMAGE_NAME:=${BASEDIR}/${DATE}-rpi${RPI_MODEL}-${RELEASE}}
+if [ -z "$KERNEL_BRANCH" ] ; then
+  IMAGE_NAME=${IMAGE_NAME:=${BASEDIR}/${DATE}-${KERNEL_ARCH}-CURRENT-rpi${RPI_MODEL}-${RELEASE}-${RELEASE_ARCH}}
+else
+  IMAGE_NAME=${IMAGE_NAME:=${BASEDIR}/${DATE}-${KERNEL_ARCH}-${KERNEL_BRANCH}-rpi${RPI_MODEL}-${RELEASE}-${RELEASE_ARCH}}
+fi
 
 # Chroot directories
 R="${BUILDDIR}/chroot"
@@ -160,6 +175,11 @@ KERNEL_THREADS=${KERNEL_THREADS:=1}
 KERNEL_HEADERS=${KERNEL_HEADERS:=true}
 KERNEL_MENUCONFIG=${KERNEL_MENUCONFIG:=false}
 KERNEL_REMOVESRC=${KERNEL_REMOVESRC:=true}
+if [ "$KERNEL_ARCH" = "arm64" ] ; then
+  KERNEL_BIN_IMAGE=${KERNEL_BIN_IMAGE:="Image"}
+else
+  KERNEL_BIN_IMAGE=${KERNEL_BIN_IMAGE:="zImage"}
+fi
 
 # Kernel compilation from source directory settings
 KERNELSRC_DIR=${KERNELSRC_DIR:=""}
@@ -231,13 +251,17 @@ if [ ! -z "$DISABLE_UNDERVOLT_WARNINGS" ] ; then
 fi
 
 # Build RPi2/3 Linux kernel if required by Debian release
-if [ "$RELEASE" = "stretch" ] ; then
+if [ "$RELEASE" = "stretch" ]  || [ "$RELEASE" = "buster" ] ; then
   BUILD_KERNEL=true
 fi
 
 # Add packages required for kernel cross compilation
 if [ "$BUILD_KERNEL" = true ] ; then
-  REQUIRED_PACKAGES="${REQUIRED_PACKAGES} crossbuild-essential-armhf"
+  if [ "$KERNEL_ARCH" = "arm" ] ; then
+    REQUIRED_PACKAGES="${REQUIRED_PACKAGES} crossbuild-essential-armhf"
+  else
+    REQUIRED_PACKAGES="${REQUIRED_PACKAGES} crossbuild-essential-arm64"
+  fi
 fi
 
 # Add libncurses5 to enable kernel menuconfig
@@ -418,7 +442,7 @@ fi
 
 # Add user defined window manager package
 if [ -n "$ENABLE_WM" ] ; then
-  APT_INCLUDES="${APT_INCLUDES},${ENABLE_WM},${ENABLE_DM}"
+  APT_INCLUDES="${APT_INCLUDES},${ENABLE_WM}"
 
   # Enable xorg package dependencies
   ENABLE_XORG=true
@@ -426,7 +450,7 @@ fi
 
 # Add xorg package
 if [ "$ENABLE_XORG" = true ] ; then
-  APT_INCLUDES="${APT_INCLUDES},xorg"
+  APT_INCLUDES="${APT_INCLUDES},xorg,dbus-x11"
 fi
 
 # Replace selected packages with smaller clones

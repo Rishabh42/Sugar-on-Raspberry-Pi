@@ -8,12 +8,12 @@
 # Fetch and build latest raspberry kernel
 if [ "$BUILD_KERNEL" = true ] ; then
   # Setup source directory
-  mkdir -p "${R}/usr/src"
+  mkdir -p "${R}/usr/src/linux"
 
   # Copy existing kernel sources into chroot directory
   if [ -n "$KERNELSRC_DIR" ] && [ -d "$KERNELSRC_DIR" ] ; then
-    # Copy kernel sources
-    cp -r "${KERNELSRC_DIR}" "${R}/usr/src"
+    # Copy kernel sources and include hidden files
+    cp -r "${KERNELSRC_DIR}/". "${R}/usr/src/linux"
 
     # Clean the kernel sources
     if [ "$KERNELSRC_CLEAN" = true ] && [ "$KERNELSRC_PREBUILT" = false ] ; then
@@ -21,13 +21,17 @@ if [ "$BUILD_KERNEL" = true ] ; then
     fi
   else # KERNELSRC_DIR=""
     # Create temporary directory for kernel sources
-    temp_dir=$(sudo -u nobody mktemp -d)
+    temp_dir=$(as_nobody mktemp -d)
 
     # Fetch current RPi2/3 kernel sources
-    sudo -u nobody git -C "${temp_dir}" clone --depth=1 "${KERNEL_URL}"
-
+    if [ -z "${KERNEL_BRANCH}" ] ; then
+      as_nobody git -C "${temp_dir}" clone --depth=1 "${KERNEL_URL}" linux
+    else
+      as_nobody git -C "${temp_dir}" clone --depth=1 --branch "${KERNEL_BRANCH}" "${KERNEL_URL}" linux
+   fi
+    
     # Copy downloaded kernel sources
-    mv "${temp_dir}/linux" "${R}/usr/src/"
+    cp -r "${temp_dir}/linux/"* "${R}/usr/src/linux/"
 
     # Remove temporary directory for kernel sources
     rm -fr "${temp_dir}"
@@ -94,12 +98,12 @@ if [ "$BUILD_KERNEL" = true ] ; then
     fi
 
     # Cross compile kernel and modules
-    make -C "${KERNEL_DIR}" -j${KERNEL_THREADS} ARCH="${KERNEL_ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" zImage modules dtbs
+    make -C "${KERNEL_DIR}" -j${KERNEL_THREADS} ARCH="${KERNEL_ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" "${KERNEL_BIN_IMAGE}" modules dtbs
   fi
 
   # Check if kernel compilation was successful
-  if [ ! -r "${KERNEL_DIR}/arch/${KERNEL_ARCH}/boot/zImage" ] ; then
-    echo "error: kernel compilation failed! (zImage not found)"
+  if [ ! -r "${KERNEL_DIR}/arch/${KERNEL_ARCH}/boot/${KERNEL_BIN_IMAGE}" ] ; then
+    echo "error: kernel compilation failed! (kernel image not found)"
     cleanup
     exit 1
   fi
@@ -130,16 +134,23 @@ if [ "$BUILD_KERNEL" = true ] ; then
 
   # Copy dts and dtb device tree sources and binaries
   mkdir "${BOOT_DIR}/overlays"
-  install_readonly "${KERNEL_DIR}/arch/${KERNEL_ARCH}/boot/dts/"*.dtb "${BOOT_DIR}/"
+  
+  # Ensure the proper .dtb is located
+  if [ "$KERNEL_ARCH" = "arm" ] ; then
+    install_readonly "${KERNEL_DIR}/arch/${KERNEL_ARCH}/boot/dts/"*.dtb "${BOOT_DIR}/"
+  else
+    install_readonly "${KERNEL_DIR}/arch/${KERNEL_ARCH}/boot/dts/broadcom/"*.dtb "${BOOT_DIR}/"
+  fi
+
   install_readonly "${KERNEL_DIR}/arch/${KERNEL_ARCH}/boot/dts/overlays/"*.dtb* "${BOOT_DIR}/overlays/"
   install_readonly "${KERNEL_DIR}/arch/${KERNEL_ARCH}/boot/dts/overlays/README" "${BOOT_DIR}/overlays/README"
 
   if [ "$ENABLE_UBOOT" = false ] ; then
-    # Convert and copy zImage kernel to the boot directory
-    "${KERNEL_DIR}/scripts/mkknlimg" "${KERNEL_DIR}/arch/${KERNEL_ARCH}/boot/zImage" "${BOOT_DIR}/${KERNEL_IMAGE}"
+    # Convert and copy kernel image to the boot directory
+    "${KERNEL_DIR}/scripts/mkknlimg" "${KERNEL_DIR}/arch/${KERNEL_ARCH}/boot/${KERNEL_BIN_IMAGE}" "${BOOT_DIR}/${KERNEL_IMAGE}"
   else
-    # Copy zImage kernel to the boot directory
-    install_readonly "${KERNEL_DIR}/arch/${KERNEL_ARCH}/boot/zImage" "${BOOT_DIR}/${KERNEL_IMAGE}"
+    # Copy kernel image to the boot directory
+    install_readonly "${KERNEL_DIR}/arch/${KERNEL_ARCH}/boot/${KERNEL_BIN_IMAGE}" "${BOOT_DIR}/${KERNEL_IMAGE}"
   fi
 
   # Remove kernel sources
@@ -149,8 +160,8 @@ if [ "$BUILD_KERNEL" = true ] ; then
     make -C "${KERNEL_DIR}" ARCH="${KERNEL_ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" modules_prepare
 
     # Create symlinks for kernel modules
-    ln -sf "${KERNEL_DIR}" "${R}/lib/modules/${KERNEL_VERSION}/build"
-    ln -sf "${KERNEL_DIR}" "${R}/lib/modules/${KERNEL_VERSION}/source"
+    chroot_exec ln -sf /usr/src/linux "/lib/modules/${KERNEL_VERSION}/build"
+    chroot_exec ln -sf /usr/src/linux "/lib/modules/${KERNEL_VERSION}/source"
   fi
 
 else # BUILD_KERNEL=false
